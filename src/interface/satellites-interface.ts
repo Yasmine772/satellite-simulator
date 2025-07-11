@@ -4,7 +4,7 @@ import type Application from 'app';
 import { Euler, Spherical, Vector3 } from 'three';
 
 import { EARTH_RADIUS } from 'physics/constants';
-import Satellite from 'components/satellite';
+import Satellite from 'components/Satellite';
 
 const TO_DEGREE = 180 / Math.PI;
 const TO_RADIAN = Math.PI / 180;

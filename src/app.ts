@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import Stats from 'three/examples/jsm/libs/stats.module';
 
 import World from 'components/world';
+
 import { EARTH_DISTANCE, EARTH_RADIUS, SIMULATION_SCALE } from 'physics/constants';
 import Toaster from 'interface/toaster';
 /**
@@ -21,6 +22,7 @@ export default class Application {
     protected resizeCallback: () => void;
 
     protected _world = new World();
+   
     get world() { return this._world; }
 
     protected _statsVisible = false;
@@ -105,11 +107,12 @@ export default class Application {
         this.controls.target.copy(this.followedObject.position);
     }
 
-    destroy() {
+   destroy() {
         if (this._statsVisible) this.stats.domElement.remove();
         this.renderer.domElement.remove();
         this.renderer.setAnimationLoop(null);
 
         this.container.removeEventListener('resize', this.resizeCallback);
     }
+
 }

@@ -23,3 +23,13 @@ export const MOON_DISTANCE = 3.844e8;
 export const SUN_MASS = 1.989e30;
 
 export const SUN_RADIUS = 6.955e8;
+
+export const GEO_ALTITUDE = 3.5786e7;
+
+export const GEO_ECCENTRICITY = 0.0001;
+
+export const GEO_INCLINATION = 0;
+
+export const EARTH_ROTATION_PERIOD = 86164;
+
+export const GEO_SEMI_MAJOR_AXIS = EARTH_RADIUS + GEO_ALTITUDE;
