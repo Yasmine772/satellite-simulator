@@ -23,8 +23,7 @@ export default class World extends THREE.Scene {
   public satellite = new Satellite();
   readonly satellites: Satellite[] = [];
 
-  moon!: Moon;
-  // سيتم تحميله لاحقًا
+  moon!: Moon; // سيتم تحميله لاحقًا
 
   public paused = false;
   public timescale = 1;
@@ -62,7 +61,7 @@ export default class World extends THREE.Scene {
    * تحميل القمر (Moon) بشكل غير متزامن
    */
   async init() {
-    const orbitRadius = 100.844e8; 
+    const orbitRadius = 100.844e8;
     const initialPosition = new THREE.Vector3(orbitRadius, 0, 0);
     const initialVelocity = new THREE.Vector3(0, 0, 0);
 
@@ -75,41 +74,91 @@ export default class World extends THREE.Scene {
     );
   }
 
+  updateAndCheckCollisions(
+    satellites: Satellite[],
+    dt: number,
+    removeSatelliteCallback: (sat: Satellite) => void
+  ) {
+    satellites.forEach((sat) => {
+      if (!sat.isDestroyed) sat.update(dt);
+    });
 
- update() {
-  if (this.paused) return;
+    const collidedPairs = new Set<string>();
 
-  const dt = (this.clock.getDelta() % (1 / 30)) * this.timescale;
+    for (let i = 0; i < satellites.length; i++) {
+      for (let j = i + 1; j < satellites.length; j++) {
+        const satA = satellites[i];
+        const satB = satellites[j];
 
-  this.simulatedSpace.run(dt);
+        if (satA.isDestroyed || satB.isDestroyed) continue;
 
-  this.planet.update(dt);
+        const dist = satA.getPosition().distanceTo(satB.getPosition());
 
-  this.satellites.forEach((satellite) =>
-  { 
-    satellite.update(dt);
-    satellite.lookAt(this.planet.position);
+        if (dist < satA.collisionRadius + satB.collisionRadius) {
+          const pairId = `${Math.min(satA.id, satB.id)}-${Math.max(
+            satA.id,
+            satB.id
+          )}`;
+          if (!collidedPairs.has(pairId)) {
+            collidedPairs.add(pairId);
+
+            satA.onCollision();
+            satB.onCollision();
+
+            console.log(
+              `Satellite #${satA.id} has collided and was destroyed`
+            );
+            console.log(
+              `Satellite #${satB.id} has collided and was destroyed`
+            );
+
+            removeSatelliteCallback(satA);
+            removeSatelliteCallback(satB);
+          }
+        }
+      }
+    }
   }
-  );
 
+  update() {
+    if (this.paused) return;
 
-  if (this.moon) {
-    const orbitalPeriod = 27.3 * 24 * 3600; 
-    const angularSpeed = (2 * Math.PI) / orbitalPeriod;
+    const dt = (this.clock.getDelta() % (1 / 30)) * this.timescale;
 
-    if (!this.moon.userData.angle) this.moon.userData.angle = 0;
-    this.moon.userData.angle += angularSpeed * dt;
+    this.simulatedSpace.run(dt);
 
-    const angle = this.moon.userData.angle;
-    const orbitRadius = 3.844e8;
+    this.planet.update(dt);
 
-    const x = orbitRadius * Math.cos(angle);
-    const y = orbitRadius * Math.sin(angle);
+    // تحديث الأقمار الصناعية وفحص التصادم
+    this.updateAndCheckCollisions(this.satellites, dt, (sat) =>
+      this.removeSatellite(sat)
+    );
 
-    this.moon.position.set(x, y, 0);
+    // تحديث اتجاه الأقمار الصناعية غير المدمرة
+    this.satellites.forEach((sat) => {
+      if (!sat.isDestroyed) {
+        sat.up.set(0, 0, 1);
+        sat.lookAt(this.planet.position);
+      }
+    });
+
+    // تحديث القمر إذا موجود
+    if (this.moon) {
+      const orbitalPeriod = 27.3 * 24 * 3600;
+      const angularSpeed = (2 * Math.PI) / orbitalPeriod;
+
+      if (!this.moon.userData.angle) this.moon.userData.angle = 0;
+      this.moon.userData.angle += angularSpeed * dt;
+
+      const angle = this.moon.userData.angle;
+      const orbitRadius = 3.844e8;
+
+      const x = orbitRadius * Math.cos(angle);
+      const y = orbitRadius * Math.sin(angle);
+
+      this.moon.position.set(x, y, 0);
+    }
   }
-}
-
 
   addSatellite(satellite: Satellite) {
     this.satellites.push(satellite);
@@ -125,6 +174,5 @@ export default class World extends THREE.Scene {
     _remove(this.satellites, (obj) => obj === satellite);
     this.simulatedSpace.remove(satellite);
   }
-
   
-} 
+}

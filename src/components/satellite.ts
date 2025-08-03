@@ -2,27 +2,29 @@ import * as THREE from "three";
 import { satelliteModel } from "models";
 import { BodyType, Rigid } from "physics/body";
 import SimulatedObject from "components/simulated-object";
+
 type DestructionListener = (satellite: Satellite) => void;
 
 export default class Satellite extends SimulatedObject implements Rigid {
   public readonly mesh = new THREE.Mesh(
-    new THREE.SphereGeometry(7e5, 4, 2),
+    new THREE.SphereGeometry(10, 16, 16),
     new THREE.MeshBasicMaterial({ color: 0x00ffff, wireframe: true })
   );
 
-  static readonly defaultCollisionRadius = 7e5;
+  static readonly defaultCollisionRadius = 10;
   public collisionRadius = Satellite.defaultCollisionRadius;
+
+  public isDestroyed = false; // خاصية التدمير
 
   private readonly destructionListeners: DestructionListener[] = [];
 
-
-  private a: number; 
-  private e: number;  
-  private nu: number; 
-  private E: number; 
-  private M: number; 
-  private G: number; 
-  private earthMass: number; 
+  private a: number;
+  private e: number;
+  private nu: number;
+  private E: number;
+  private M: number;
+  private G: number;
+  private earthMass: number;
 
   constructor(
     mass = 10,
@@ -52,12 +54,12 @@ export default class Satellite extends SimulatedObject implements Rigid {
     this.E = this.trueToEccentric(nu, e);
     this.M = this.eccentricToMean(this.E, e);
 
-
     this.position.copy(this.positionCartesian());
     this.velocity.copy(this.velocityVector());
   }
 
   onCollision(): void {
+    this.isDestroyed = true;
     this.destructionListeners.forEach((listener) => listener(this));
   }
 
@@ -80,8 +82,6 @@ export default class Satellite extends SimulatedObject implements Rigid {
     satellite.velocity.copy(velocity);
     return satellite;
   }
-
-
 
   private trueToEccentric(nu: number, e: number) {
     const cosE = (e + Math.cos(nu)) / (1 + e * Math.cos(nu));
@@ -111,17 +111,14 @@ export default class Satellite extends SimulatedObject implements Rigid {
     return Math.atan2(sinNu, cosNu);
   }
 
-
   private radius() {
     return (this.a * (1 - this.e * this.e)) / (1 + this.e * Math.cos(this.nu));
   }
-
 
   private positionCartesian() {
     const r = this.radius();
     return new THREE.Vector3(r * Math.cos(this.nu), r * Math.sin(this.nu), 0);
   }
-
 
   private velocityVector() {
     const r = this.radius();
@@ -129,8 +126,6 @@ export default class Satellite extends SimulatedObject implements Rigid {
     const angle = this.nu + Math.PI / 2;
     return new THREE.Vector3(v * Math.cos(angle), v * Math.sin(angle), 0);
   }
-   
-
 
   public update(dt: number) {
     if (
@@ -138,7 +133,8 @@ export default class Satellite extends SimulatedObject implements Rigid {
       this.e === undefined ||
       this.M === undefined ||
       !this.G ||
-      !this.earthMass
+      !this.earthMass ||
+      this.isDestroyed
     )
       return;
 
@@ -157,6 +153,42 @@ export default class Satellite extends SimulatedObject implements Rigid {
   getPosition(): THREE.Vector3 {
     return this.position;
   }
-  
+  public getOrbitInfo(): string {
+    const pos = this.getPosition();
+    const velocity = this.velocity;
 
+    return `
+  <b>Satellite Data:</b><br />
+  <div>
+  Position:
+  <span style="display: inline-block; margin-left: 5px;">x=${pos.x.toFixed(2)}</span>
+  <div style="margin-left: 70px;">y=${pos.y.toFixed(2)}</div>
+  <div style="margin-left: 70px;">z=${pos.z.toFixed(2)}</div>
+</div>
+
+<div>
+Velocity: 
+<span style="display: inline-block; margin-left: 5px;">x=${velocity.x.toFixed(2)}</span>
+<div style="margin-left: 64px;"> y=${velocity.y.toFixed(2)}</div>
+<div style="margin-left:64px;"> z=${velocity.z.toFixed(2)}</div>
+</div>
+  <div>Semi-major axis : ${this.a.toExponential(3)} m</div>
+  <div>Eccentricity: ${this.e.toFixed(5)}</div>
+  <div>True Anomaly : ${((this.nu * 180) / Math.PI).toFixed(2)}°</div>
+  <div>Mean Anomaly : ${((this.M * 180) / Math.PI).toFixed(2)}°</div>
+  <div>Eccentric Anomaly : ${((this.E * 180) / Math.PI).toFixed(2)}°</div>
+`;
+  }
+  pointTowardsEarth(target: THREE.Vector3) {
+    const direction = new THREE.Vector3()
+      .subVectors(target, this.mesh.position)
+      .normalize();
+
+    const quaternion = new THREE.Quaternion().setFromUnitVectors(
+      new THREE.Vector3(0, 0, -1), // اتجاه القمر الأصلي
+      direction
+    );
+
+    this.mesh.quaternion.copy(quaternion);
+  }
 }
